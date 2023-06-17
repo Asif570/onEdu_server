@@ -5,7 +5,7 @@ const cors = require("cors");
 const HashedPassword = require("./utils/HashPassword");
 const PORT = process.env.PORT || 5000;
 const app = express();
-
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 app.use([express.json(), cors()]);
 app.get("/", (req, res) => {
@@ -32,17 +32,14 @@ async function run() {
       const {
         name,
         email,
-        password,
         photo_url = "",
         address = "",
         gender = "",
         phone = "",
       } = req.body;
-      const hashedpass = HashedPassword(password);
       const doc = {
         name: name,
         email: email,
-        hashedPassword: hashedpass,
         photo_url: photo_url,
         address: address,
         gender: gender,
