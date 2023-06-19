@@ -45,10 +45,17 @@ async function run() {
   try {
     // for jwt token renew
     app.post("/jwt", (req, res) => {
-      const { email, name } = req.body;
-      const token = TokenGenerate({ email, name });
-      res.cookie("token", token);
-      res.status(201).send("created");
+      const { email } = req.body;
+      const token = TokenGenerate({ email });
+
+      res.status(201).send({ token });
+    });
+    // find current userdetails
+    app.post("/currentuser", async (req, res) => {
+      const { email } = req.body;
+      const result = await userColl.findOne({ email: email });
+
+      res.status(200).send({ result });
     });
     // add any user
     app.post("/user/register", async (req, res) => {
@@ -60,6 +67,14 @@ async function run() {
         gender = "",
         phone = "",
       } = req.body;
+      const allreadyUser = await userColl.findOne({ email: email });
+      if (allreadyUser) {
+        const token = TokenGenerate({ email });
+
+        res.status(201).send({ token });
+        return;
+      }
+
       const doc = {
         name: name,
         email: email,
@@ -71,10 +86,11 @@ async function run() {
       };
       const result = await userColl.insertOne(doc);
       const token = TokenGenerate({ email, name });
-      res.cookie("token", token);
-      res.status(201).send(result);
+      // res.cookie("token", token);
+
+      res.status(201).send({ result, token });
     });
-    // add any user
+    // add any class
     app.post("/class", verifyJWT, IsInstructor, async (req, res) => {
       const {
         class_name,
