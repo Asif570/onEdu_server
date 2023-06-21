@@ -4,6 +4,7 @@ const http = require("http");
 const cors = require("cors");
 const TokenGenerate = require("./utils/JwtToken");
 const verifyJWT = require("./utils/VerifyJwt");
+const { getTime } = require("date-fns");
 const PORT = process.env.PORT || 5000;
 const app = express();
 
@@ -31,9 +32,8 @@ const classColl = DB.collection("class");
 const IsInstructor = async (req, res, next) => {
   const email = req.decoded.email;
   const user = await userColl.findOne({ email: email });
-  console.log(email, user, user.role);
   if (!user) {
-    return res.status(403).send({ error: "Unauthorized access!" });
+    return res.status(401).send({ error: "Unauthorized access!" });
   }
   if (user.role !== "instructoor") {
     return res.status(403).send({ error: "Unauthorized access!" });
@@ -94,30 +94,31 @@ async function run() {
     app.post("/class", verifyJWT, IsInstructor, async (req, res) => {
       const {
         class_name,
-        Instructor_name,
+        instructor,
         email,
-        photo_url,
+        class_photo_url,
         status = "pending",
-        sits = 0,
-        students = 0,
+        seats = 0,
+        students = [],
         price = 0,
       } = req.body;
       const doc = {
         class_name: class_name,
-        Instructor_name: Instructor_name,
+        instructor: instructor,
         email: email,
-        photo_url: photo_url,
+        class_photo_url: class_photo_url,
         status: status,
-        sits: parseInt(sits),
-        students: parseInt(students),
+        seats: parseInt(seats),
+        students: students,
         price: parseInt(price),
+        issueDate: getTime(new Date()),
       };
       const result = await classColl.insertOne(doc);
       res.status(201).send(result);
     });
     // get classes
     app.get("/class", async (_req, res) => {
-      const result = await classColl.find().toArray();
+      const result = await classColl.find().sort({ issueDate: -1 }).toArray();
       res.send(result);
     });
   } catch {
