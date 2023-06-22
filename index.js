@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -35,7 +35,7 @@ const IsInstructor = async (req, res, next) => {
   if (!user) {
     return res.status(401).send({ error: "Unauthorized access!" });
   }
-  if (user.role !== "instructoor") {
+  if (user.role !== "instructor") {
     return res.status(403).send({ error: "Unauthorized access!" });
   }
   req.role = user.role;
@@ -90,6 +90,19 @@ async function run() {
 
       res.status(201).send({ result, token });
     });
+    // All Instuctors
+    app.get("/instuctors", async (req, res) => {
+      const result = await userColl
+        .find({ role: { $regex: "instructor", $options: "i" } })
+        .toArray();
+
+      res.status(200).send(result);
+    });
+    // get all classes
+    app.get("/class", async (_req, res) => {
+      const result = await classColl.find().sort({ issueDate: -1 }).toArray();
+      res.send(result);
+    });
     // add any class
     app.post("/class", verifyJWT, IsInstructor, async (req, res) => {
       const {
@@ -117,8 +130,20 @@ async function run() {
       res.status(201).send(result);
     });
     // get classes
-    app.get("/class", async (_req, res) => {
-      const result = await classColl.find().sort({ issueDate: -1 }).toArray();
+    app.get("/myclass", verifyJWT, async (req, res) => {
+      const { email } = req.decoded;
+      console.log(email);
+      const result = await classColl
+        .find({ email: { $regex: email, $options: 1 } })
+        .sort({ issueDate: -1 })
+        .toArray();
+      res.send(result);
+    });
+    // delete class
+    app.delete("/class/:id", verifyJWT, IsInstructor, async (req, res) => {
+      const { id } = req.params;
+
+      const result = await classColl.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
   } catch {
