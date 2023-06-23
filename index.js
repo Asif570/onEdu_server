@@ -99,8 +99,12 @@ async function run() {
       res.status(200).send(result);
     });
     // get all classes
-    app.get("/class", async (_req, res) => {
-      const result = await classColl.find().sort({ issueDate: -1 }).toArray();
+    app.get("/popularclass", async (_req, res) => {
+      const result = await classColl
+        .find()
+        .limit(6)
+        .sort({ students: -1 })
+        .toArray();
       res.send(result);
     });
     // add any class
@@ -132,9 +136,8 @@ async function run() {
     // get classes
     app.get("/myclass", verifyJWT, async (req, res) => {
       const { email } = req.decoded;
-      console.log(email);
       const result = await classColl
-        .find({ email: { $regex: email, $options: 1 } })
+        .find({ email: { $regex: email } })
         .sort({ issueDate: -1 })
         .toArray();
       res.send(result);
