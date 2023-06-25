@@ -41,6 +41,18 @@ const IsInstructor = async (req, res, next) => {
   req.role = user.role;
   next();
 };
+const IsAdmin = async (req, res, next) => {
+  const email = req.decoded.email;
+  const user = await userColl.findOne({ email: email });
+  if (!user) {
+    return res.status(401).send({ error: "Unauthorized access!" });
+  }
+  if (user.role !== "admin") {
+    return res.status(403).send({ error: "Unauthorized access!" });
+  }
+  req.role = user.role;
+  next();
+};
 async function run() {
   try {
     // for jwt token renew
@@ -83,12 +95,36 @@ async function run() {
         gender: gender,
         phone: phone,
         role: "user",
+        issueDate: getTime(new Date()),
       };
       const result = await userColl.insertOne(doc);
       const token = TokenGenerate({ email, name });
-      // res.cookie("token", token);
 
       res.status(201).send({ result, token });
+    });
+    // add any user
+    app.get("/allstudent", verifyJWT, IsAdmin, async (req, res) => {
+      const result = await userColl
+        .find({ role: "user" })
+        .sort({ issueDate: -1 })
+        .toArray();
+
+      res.status(201).send(result);
+    });
+    // update user to Instactor
+    app.post("/update_user/:id", verifyJWT, IsAdmin, async (req, res) => {
+      const id = req.params;
+      const { role } = req.body;
+      const result = await userColl.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            role: role,
+          },
+        }
+      );
+
+      res.status(201).send(result);
     });
     // All Instuctors
     app.get("/instuctors", async (req, res) => {
@@ -98,11 +134,26 @@ async function run() {
 
       res.status(200).send(result);
     });
-    // get all classes
+    // Instactor Details
+    app.get("/instuctor/:id", async (req, res) => {
+      const id = req.params.id;
+      const user = await userColl.findOne({ _id: new ObjectId(id) });
+      const classes = await classColl
+        .find({
+          email: user.email,
+          status: "approved",
+        })
+        .toArray();
+      const result = {
+        ...user,
+        classes: classes,
+      };
+      res.status(200).send(result);
+    });
+    // get popular classes
     app.get("/popularclass", async (_req, res) => {
       const result = await classColl
-        .find()
-        .limit(6)
+        .find({ status: "approved" })
         .sort({ students: -1 })
         .toArray();
       res.send(result);
@@ -134,13 +185,45 @@ async function run() {
       res.status(201).send(result);
     });
     // get classes
-    app.get("/myclass", verifyJWT, async (req, res) => {
+    app.get("/myclass", verifyJWT, IsInstructor, async (req, res) => {
       const { email } = req.decoded;
       const result = await classColl
         .find({ email: { $regex: email } })
         .sort({ issueDate: -1 })
         .toArray();
       res.send(result);
+    });
+    // get classes
+    app.get("/allclass", verifyJWT, IsAdmin, async (req, res) => {
+      const { email } = req.decoded;
+      const result = await classColl.find().sort({ issueDate: -1 }).toArray();
+      res.send({ result, role: "admin" });
+    });
+    // approved class
+    app.get("/class_approve/:id", verifyJWT, IsAdmin, async (req, res) => {
+      const { email } = req.decoded;
+      const id = req.params;
+      const result = await classColl.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        {
+          $set: { status: "approved" },
+        },
+        { returnOriginal: false }
+      );
+      res.status(200).send(result);
+    });
+    // Deny a class
+    app.post("/class_deny/:id", verifyJWT, IsAdmin, async (req, res) => {
+      const id = req.params;
+      // const { feedback } = req.body;
+      const result = await classColl.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        {
+          $set: { status: "deny" },
+        },
+        { returnOriginal: false }
+      );
+      res.status(200).send(result);
     });
     // delete class
     app.delete("/class/:id", verifyJWT, IsInstructor, async (req, res) => {
