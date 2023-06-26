@@ -102,7 +102,7 @@ async function run() {
 
       res.status(201).send({ result, token });
     });
-    // add any user
+    // get all  user
     app.get("/allstudent", verifyJWT, IsAdmin, async (req, res) => {
       const result = await userColl
         .find({ role: "user" })
@@ -111,6 +111,7 @@ async function run() {
 
       res.status(201).send(result);
     });
+
     // update user to Instactor
     app.post("/update_user/:id", verifyJWT, IsAdmin, async (req, res) => {
       const id = req.params;
@@ -215,11 +216,11 @@ async function run() {
     // Deny a class
     app.post("/class_deny/:id", verifyJWT, IsAdmin, async (req, res) => {
       const id = req.params;
-      // const { feedback } = req.body;
+      const { feedback } = req.body;
       const result = await classColl.findOneAndUpdate(
         { _id: new ObjectId(id) },
         {
-          $set: { status: "deny" },
+          $set: { status: "deny", feedback: feedback },
         },
         { returnOriginal: false }
       );
@@ -230,6 +231,29 @@ async function run() {
       const { id } = req.params;
 
       const result = await classColl.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    /// All Data Count
+    app.get("/allDataCount", verifyJWT, IsAdmin, async (req, res) => {
+      const admin = await userColl.find({ role: "admin" }).toArray();
+      const instructor = await userColl.find({ role: "instructor" }).toArray();
+      const student = await userColl.find({ role: "user" }).toArray();
+      const approvedClass = await classColl
+        .find({ status: "approved" })
+        .toArray();
+      const pendingClass = await classColl
+        .find({ status: "pending" })
+        .toArray();
+      const denyClass = await classColl.find({ status: "deny" }).toArray();
+      const result = {
+        admin: admin,
+        instructor: instructor,
+        student: student,
+        approvedClass: approvedClass,
+        pendingClass: pendingClass,
+        denyClass: denyClass,
+      };
       res.send(result);
     });
   } catch {
