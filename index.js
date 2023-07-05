@@ -35,7 +35,7 @@ const IsInstructor = async (req, res, next) => {
   if (!user) {
     return res.status(401).send({ error: "Unauthorized access!" });
   }
-  if (user.role !== "instructor") {
+  if (user.role !== "instuctor") {
     return res.status(403).send({ error: "Unauthorized access!" });
   }
   req.role = user.role;
@@ -96,6 +96,8 @@ async function run() {
         phone: phone,
         role: "user",
         issueDate: getTime(new Date()),
+        selected_class: [],
+        enrolled_class: [],
       };
       const result = await userColl.insertOne(doc);
       const token = TokenGenerate({ email, name });
@@ -130,7 +132,7 @@ async function run() {
     // All Instuctors
     app.get("/instuctors", async (req, res) => {
       const result = await userColl
-        .find({ role: { $regex: "instructor", $options: "i" } })
+        .find({ role: { $regex: "instuctor", $options: "i" } })
         .toArray();
 
       res.status(200).send(result);
@@ -200,6 +202,12 @@ async function run() {
       const result = await classColl.find().sort({ issueDate: -1 }).toArray();
       res.send({ result, role: "admin" });
     });
+    // get class by Id
+    app.get("/class/:id", async (req, res) => {
+      const { id } = req.params;
+      const result = await classColl.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
     // approved class
     app.get("/class_approve/:id", verifyJWT, IsAdmin, async (req, res) => {
       const { email } = req.decoded;
@@ -237,7 +245,7 @@ async function run() {
     /// All Data Count
     app.get("/allDataCount", verifyJWT, IsAdmin, async (req, res) => {
       const admin = await userColl.find({ role: "admin" }).toArray();
-      const instructor = await userColl.find({ role: "instructor" }).toArray();
+      const instructor = await userColl.find({ role: "instuctor" }).toArray();
       const student = await userColl.find({ role: "user" }).toArray();
       const approvedClass = await classColl
         .find({ status: "approved" })
@@ -254,6 +262,51 @@ async function run() {
         pendingClass: pendingClass,
         denyClass: denyClass,
       };
+      res.send(result);
+    });
+    /// Selecte Class
+    app.post("/selectclass", verifyJWT, async (req, res) => {
+      const { email } = req.decoded;
+      const { id } = req.body;
+
+      const IsAllreadySelected = await userColl
+        .findOne({ email: email })
+        .then((res) => res.selected_class.includes(id));
+      if (IsAllreadySelected) {
+        res.status(205).send("allready selected");
+        return;
+      }
+      const result = await userColl.findOneAndUpdate(
+        { email: email },
+        { $push: { selected_class: id } }
+      );
+
+      res.send(result);
+    });
+    /// Enroll Class
+    app.post("/enrollclass", verifyJWT, async (req, res) => {
+      const { email } = req.decoded;
+      const { id } = req.body;
+
+      const IsAllreadySelected = await userColl
+        .findOne({ email: email })
+        .then((res) => res.selected_class.includes(id));
+      if (IsAllreadySelected) {
+        await userColl.findOneAndUpdate(
+          { email: email },
+          { $pull: { selected_class: id } }
+        );
+      }
+      const result = await userColl.findOneAndUpdate(
+        { email: email },
+        { $push: { enrolled_class: id } }
+      );
+      await classColl.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $inc: { students: 1 },
+        }
+      );
       res.send(result);
     });
   } catch {
