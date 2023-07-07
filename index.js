@@ -170,7 +170,7 @@ async function run() {
         class_photo_url,
         status = "pending",
         seats = 0,
-        students = [],
+        students = 0,
         price = 0,
       } = req.body;
       const doc = {
